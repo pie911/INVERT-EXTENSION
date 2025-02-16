@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Invert Page Colors",
+  "version": "1.0",
+  "description": "An extension to invert webpage colors",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  }
+}
