@@ -9,7 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentWindow: true
             });
 
-            // Inject content script if needed
+            if (!tab?.id) {
+                throw new Error('No active tab found');
+            }
+
+            // Execute content script directly
             await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
                 files: ['content.js']
@@ -21,11 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 { action: 'toggle' },
                 (response) => {
                     if (chrome.runtime.lastError) {
-                        console.error(chrome.runtime.lastError);
+                        console.error('Runtime error:', chrome.runtime.lastError);
                         return;
                     }
                     
-                    if (response && response.success) {
+                    if (response?.success) {
                         button.textContent = response.isInverted ? 
                             'Restore Colors' : 'Invert Colors';
                     }
