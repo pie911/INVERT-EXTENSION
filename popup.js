@@ -8,12 +8,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         if (!tab?.id) throw new Error('No active tab');
 
-        // ensure content script is injected so it can respond
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['content.js']
-        });
-
         // query current state and set switch
         chrome.tabs.sendMessage(tab.id, { action: 'getState' }, (resp) => {
             if (!chrome.runtime.lastError && resp?.isInverted) {
