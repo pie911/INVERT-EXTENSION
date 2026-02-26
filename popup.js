@@ -1,42 +1,40 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const button = document.getElementById('invertButton');
-    
-    button.addEventListener('click', async () => {
-        try {
-            // Get current tab
-            const [tab] = await chrome.tabs.query({
-                active: true,
-                currentWindow: true
-            });
+document.addEventListener('DOMContentLoaded', async () => {
+    const toggle = document.getElementById('invertToggle');
 
-            if (!tab?.id) {
-                throw new Error('No active tab found');
+    try {
+        const [tab] = await chrome.tabs.query({
+            active: true,
+            currentWindow: true
+        });
+        if (!tab?.id) throw new Error('No active tab');
+
+        // ensure content script is injected so it can respond
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+        });
+
+        // query current state and set switch
+        chrome.tabs.sendMessage(tab.id, { action: 'getState' }, (resp) => {
+            if (!chrome.runtime.lastError && resp?.isInverted) {
+                toggle.checked = true;
             }
+        });
 
-            // Execute content script directly
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: ['content.js']
-            });
-
-            // Send toggle message
-            chrome.tabs.sendMessage(
-                tab.id,
-                { action: 'toggle' },
-                (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.error('Runtime error:', chrome.runtime.lastError);
-                        return;
-                    }
-                    
-                    if (response?.success) {
-                        button.textContent = response.isInverted ? 
-                            'Restore Colors' : 'Invert Colors';
-                    }
+        // handle user toggle
+        toggle.addEventListener('change', () => {
+            chrome.tabs.sendMessage(tab.id, { action: 'toggle' }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Runtime error:', chrome.runtime.lastError);
+                    return;
                 }
-            );
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    });
+                // keep switch in sync if response differs
+                if (response && typeof response.isInverted === 'boolean') {
+                    toggle.checked = response.isInverted;
+                }
+            });
+        });
+    } catch (err) {
+        console.error('Popup error:', err);
+    }
 });

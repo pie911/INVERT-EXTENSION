@@ -32,6 +32,7 @@ function loadState() {
     }
 }
 
+// Apply the main inversion stylesheet and handle PDF viewers
 function applyInversion() {
     try {
         let styleElement = document.getElementById('invert-styles');
@@ -65,7 +66,12 @@ function applyInversion() {
                 -webkit-filter: invert(100%) hue-rotate(180deg) !important;
             }
         ` : '';
-        
+
+        // Special handling for PDF viewers (Edge/Chrome)
+        if (isInverted) {
+            invertPDF();
+        }
+
         saveState();
         return true;
     } catch (error) {
@@ -80,6 +86,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         isInverted = !isInverted;
         const success = applyInversion();
         sendResponse({ success, isInverted });
+    } else if (request.action === 'getState') {
+        // return the current inversion flag
+        sendResponse({ isInverted });
     }
     return true;
 });
@@ -87,10 +96,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Load state and apply on page load
 document.addEventListener('DOMContentLoaded', loadState);
 
+// Invert any PDF viewer if present; works for both Edge and Chrome
+function invertPDF() {
+    try {
+        const viewer = document.querySelector('embed[type="application/pdf"], object[type="application/pdf"]');
+        if (viewer) {
+            viewer.style.filter = "invert(1) hue-rotate(180deg)";
+            viewer.style.backgroundColor = "black";
+            console.log("PDF inversion applied to viewer element.");
+        } else {
+            const canvases = document.querySelectorAll('canvas');
+            canvases.forEach(c => {
+                c.style.filter = "invert(1) hue-rotate(180deg)";
+                c.style.backgroundColor = "black";
+            });
+            console.log("PDF inversion applied to canvas elements.");
+        }
+    } catch (err) {
+        console.warn('PDF inversion failed:', err);
+    }
+}
+
 // Handle dynamic content
 const observer = new MutationObserver(() => {
     if (isInverted) {
         applyInversion();
+        invertPDF();
     }
 });
 
