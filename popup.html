@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <title>Invert Colors</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
 :root {
     --accent: #4CAF50;
@@ -78,8 +79,8 @@ input:checked + .slider:before {
 <body>
 <header><h1>Invert Colors</h1></header>
 <main>
-<label class="switch">
-  <input type="checkbox" id="invertToggle" />
+<label class="switch" for="invertToggle">
+  <input type="checkbox" id="invertToggle" aria-label="Invert colors" />
   <span class="slider"></span>
 </label>
 </main>
