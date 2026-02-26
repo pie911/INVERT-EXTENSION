@@ -82,21 +82,21 @@ if (!window.__invertExtensionInitialized) {
                     -webkit-filter: invert(100%) hue-rotate(180deg) !important;
                 }
                 
+                /* Double-invert images and videos so they appear normal */
                 img,
                 picture,
                 video,
-                canvas,
                 svg,
                 [role="img"],
-                [class*="image"],
-                [class*="photo"],
-                [class*="picture"],
-                [style*="background-image"],
-                i[class*="icon"],
-                span[class*="icon"],
-                [class*="logo"] {
+                iframe {
                     filter: invert(100%) hue-rotate(180deg) !important;
                     -webkit-filter: invert(100%) hue-rotate(180deg) !important;
+                }
+                
+                /* Preserve canvas for PDFs only (they handle their own inversion) */
+                canvas {
+                    filter: none !important;
+                    -webkit-filter: none !important;
                 }
             ` : '';
 
