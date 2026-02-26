@@ -4,6 +4,7 @@ if (!window.__invertExtensionInitialized) {
 
     let isInverted = false;
     let debounceTimer = null;
+    let stateCache = {}; // local cache to avoid repeated storage calls
     const DEBOUNCE_DELAY = 300; // ms
 
     // quick check for PDF pages (internal viewer or file:// access)
@@ -26,34 +27,80 @@ if (!window.__invertExtensionInitialized) {
         }
     }
 
-    // Function to save state
+    // Robust state saving with context validation and fallback caching
     function saveState() {
         const domain = getDomain(window.location.href);
+        
+        // Update local cache immediately (fastest fallback)
+        stateCache[domain] = isInverted;
+        
         try {
-            if (typeof chrome !== 'undefined' && chrome.storage) {
-                chrome.storage.local.set({
-                    [domain]: isInverted
-                });
+            // Check if chrome API is available and context is valid
+            if (typeof chrome === 'undefined' || !chrome.storage) {
+                console.warn('Chrome storage API unavailable, using local cache only');
+                return;
             }
+            
+            // Use callback to detect context invalidation gracefully
+            chrome.storage.local.set(
+                { [domain]: isInverted },
+                () => {
+                    // Check for any runtime errors
+                    if (chrome.runtime && chrome.runtime.lastError) {
+                        console.warn('Save state error:', chrome.runtime.lastError.message);
+                        // Continue using cache even if storage fails
+                    }
+                }
+            );
         } catch (error) {
-            console.warn('Could not save state:', error);
+            // Handle context invalidation and other errors gracefully
+            if (error.message && (error.message.includes('context invalidated') || error.message.includes('Extension context'))) {
+                console.warn('Extension context invalidated, using cache:', domain);
+            } else {
+                console.warn('Could not save state:', error);
+            }
         }
     }
 
-    // Function to load state
+    // Function to load state with fallback to cache
     function loadState() {
         const domain = getDomain(window.location.href);
+        
         try {
-            if (typeof chrome !== 'undefined' && chrome.storage) {
-                chrome.storage.local.get(domain, (result) => {
-                    if (result && result[domain] !== undefined) {
-                        isInverted = result[domain];
+            if (typeof chrome === 'undefined' || !chrome.storage) {
+                // Use cache if chrome API unavailable
+                if (stateCache[domain] !== undefined) {
+                    isInverted = stateCache[domain];
+                    applyInversion();
+                }
+                return;
+            }
+            
+            chrome.storage.local.get(domain, (result) => {
+                // Check for runtime errors
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    console.warn('Load state error:', chrome.runtime.lastError.message);
+                    // Try cache as fallback
+                    if (stateCache[domain] !== undefined) {
+                        isInverted = stateCache[domain];
                         applyInversion();
                     }
-                });
-            }
+                    return;
+                }
+                
+                if (result && result[domain] !== undefined) {
+                    isInverted = result[domain];
+                    stateCache[domain] = isInverted; // sync cache
+                    applyInversion();
+                }
+            });
         } catch (error) {
-            console.warn('Could not load state:', error);
+            console.warn('Load state error:', error);
+            // Fallback: use cache or default to false
+            if (stateCache[domain] !== undefined) {
+                isInverted = stateCache[domain];
+                applyInversion();
+            }
         }
     }
 
@@ -82,18 +129,32 @@ if (!window.__invertExtensionInitialized) {
                     -webkit-filter: invert(100%) hue-rotate(180deg) !important;
                 }
                 
-                /* Double-invert images and videos so they appear normal */
+                /* Double-invert images and photos so they appear normal */
                 img,
                 picture,
-                video,
                 svg,
                 [role="img"],
-                iframe {
+                iframe:not([src*="youtube"]):not([src*="youtu.be"]):not([src*="vimeo"]):not([src*="dailymotion"]):not([src*="twitch"]) {
                     filter: invert(100%) hue-rotate(180deg) !important;
                     -webkit-filter: invert(100%) hue-rotate(180deg) !important;
                 }
                 
-                /* Preserve canvas for PDFs only (they handle their own inversion) */
+                /* Preserve audio, video, and media embeds naturally */
+                audio,
+                video,
+                video::backdrop,
+                iframe[src*="youtube"],
+                iframe[src*="youtu.be"],
+                iframe[src*="vimeo"],
+                iframe[src*="dailymotion"],
+                iframe[src*="twitch"],
+                embed[src*="youtube"],
+                embed[src*="vimeo"] {
+                    filter: none !important;
+                    -webkit-filter: none !important;
+                }
+                
+                /* Canvas for PDFs only (they handle their own inversion) */
                 canvas {
                     filter: none !important;
                     -webkit-filter: none !important;
